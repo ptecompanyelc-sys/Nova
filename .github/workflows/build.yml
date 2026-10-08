@@ -1,0 +1,54 @@
+name: Build NOVA from zip
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Unzip project
+        run: |
+          unzip -q NOVA_app_v3.zip -d project
+          ls -la project
+
+      - name: Download wake word model
+        working-directory: project
+        run: |
+          mkdir -p app/src/main/assets
+          curl -L -f -o m.zip https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip || curl -L -f -o m.zip https://huggingface.co/grimso/vosk-models/resolve/main/vosk-model-small-en-us-0.15.zip
+          unzip -q m.zip -d tmp
+          mv tmp/vosk-model-small-en-us-0.15 app/src/main/assets/model-en
+          ls app/src/main/assets/model-en
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.7
+
+      - name: Test and build
+        working-directory: project
+        run: gradle testDebugUnitTest assembleDebug --no-daemon --console=plain
+
+      - name: Upload test report (only if something failed)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report
+          path: project/app/build/reports/tests
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nova-apk
+          path: project/app/build/outputs/apk/debug/app-debug.apk

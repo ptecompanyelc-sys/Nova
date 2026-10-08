@@ -16,7 +16,7 @@ jobs:
 
       - name: Unzip project
         run: |
-          unzip -q NOVA_app_v3.zip -d project
+          unzip -q "$(ls NOVA_app_v*.zip | sort -V | tail -1)" -d project
           ls -la project
 
       - name: Download wake word model
